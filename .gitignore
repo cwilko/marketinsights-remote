@@ -1,0 +1,12 @@
+*.py[cod]
+.ipynb_checkpoints/
+test/.~lock*
+.pytest_cache/
+__pycache__/
+test/data
+.cache/
+**/test-reports
+**/*egg-info
+*.hdf
+*.pkl
+build/
