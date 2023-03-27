@@ -10,7 +10,7 @@ import json
 import pandas as pd
 import ibm_boto3
 import ibm_botocore
-import hashlib
+from marketinsights.utils.auth import CredentialsStore
 
 
 class Token:
@@ -138,16 +138,13 @@ class CloudObjectStore:
                 raise
         return exists
 
-    @staticmethod
-    def generateKey(data):
-        return hashlib.md5("".join(data).encode('utf-8')).hexdigest()
-
 
 class CloudFunctions:
 
-    def __init__(self, credentials_store):
+    def __init__(self, credentials_store=None):
 
-        from quantutils.api.bluemix import Token
+        if not credentials_store:
+            credentials_store = CredentialsStore()
 
         self.credentials = credentials_store.getSecrets('functions_cred')
         self.token = Token(credentials_store).getToken()
@@ -160,4 +157,4 @@ class CloudFunctions:
         if (debug):
             print(resp.text)
 
-        return pandas.read_json(json.dumps(json.loads(resp.text)["response"]["result"]), orient='split')
+        return json.loads(resp.text)["response"]["result"]

@@ -22,7 +22,7 @@ def sanitise(raw, url, debug):
 
     if debug:
         print(url)
-        # print(raw[:100])
+        print(raw)
         # print(raw.text[:100])
         # print(raw.json())
 
