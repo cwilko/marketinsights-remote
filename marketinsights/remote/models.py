@@ -14,11 +14,13 @@ from tensorflow_serving.config import model_server_config_pb2
 
 class MIModelServer:
 
-    def __init__(self, serverConfigPath=None, credentials_store=None, secret="marketinsights-local-cred"):
+    def __init__(self, serverConfigPath=None, credentials_store=None, secret=None):
 
         if not credentials_store:
             credentials_store = CredentialsStore()
 
+        if not secret:
+            secret = "marketinsights-local-cred"
         self.credentials = credentials_store.getSecrets(secret)
         self.remotefs = RemoteFS(credentials_store.getSecrets("scp_cred"))
         self.modelSvr = GRPCClient(credentials_store.getSecrets("model-svr-grpc-secret"))

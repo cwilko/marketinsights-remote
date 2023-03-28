@@ -14,12 +14,14 @@ from marketinsights.utils.auth import CredentialsStore
 
 class MIAssembly():
 
-    def __init__(self, modelSvr=None, credentials_store=None, secret="marketinsights-local-cred"):
+    def __init__(self, modelSvr=None, credentials_store=None, secret=None):
 
         if not credentials_store:
             credentials_store = CredentialsStore()
 
         self.fun = CloudFunctions(credentials_store)
+        if not secret:
+            secret = "marketinsights-local-cred"
         self.credentials = credentials_store.getSecrets(secret)
         self.modelSvr = modelSvr
 
