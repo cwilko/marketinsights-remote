@@ -1,10 +1,7 @@
-import pandas
 import pytz
 import json
-import time
 import hashlib
-import urllib
-import dateutil.parser as parser
+import pandas as pd
 import quantutils.dataset.pipeline as ppl
 import marketinsights.utils.http as http
 from marketinsights.remote.models import MIModelServer
@@ -96,19 +93,19 @@ class MIAssembly():
         url = "".join([self.credentials["mi-api-endpoint"], "/v1/training_runs/", training_run_id])
         return http.get(url=url, headers=headers, debug=debug)
 
-    def get_predictions_with_dataset(self, dataset, training_run_id, debug=False):
+    def get_predictions_with_dataset(self, dataset, training_run_id, labels=1, debug=False):
 
         if not self.modelSvr:
             raise Exception("No Model Server configured")
 
+        features = dataset.iloc[:, :-labels]
         # Send the dataset features to the model and retrieve the scores (predictions)
-        return self.modelSvr.getPredictions(dataset, training_run_id, debug=debug)
+        return pd.concat([dataset, self.modelSvr.getPredictions(features, training_run_id, debug=debug)], axis=1)
 
     def get_predictions_with_dataset_id(self, dataset_id, training_run_id, start=None, end=None, debug=False):
 
         # Get the dataset from storage, crop and strip out labels
-        dataset, _ = self.get_dataset_by_id(dataset_id, debug)
-        dataset = dataset[start:end].iloc[:, :-1]
+        dataset, dataset_desc = self.get_dataset_by_id(dataset_id, debug)
 
         if debug:
             print(dataset)
@@ -116,7 +113,7 @@ class MIAssembly():
         if dataset.empty:  # No predictions in this time range
             return None
 
-        return self.get_predictions_with_dataset(dataset, training_run_id, debug)
+        return self.get_predictions_with_dataset(dataset, training_run_id, labels=dataset_desc["labels"], debug=debug)
 
     def get_predictions_with_raw_data(self, data, training_id, debug=False):
 
@@ -125,22 +122,20 @@ class MIAssembly():
             print("Training run : " + str(training_run))
 
         dataset_id = training_run["datasets"][0]
-        dataset_desc = self.get_dataset_by_id(dataset_id)[1]
+        _, dataset_desc = self.get_dataset_by_id(dataset_id)
         pipeline = dataset_desc["pipeline"]
-        if debug:
-            print("Pipeline info : " + str(pipeline))
 
         # Generate a dataset from the raw data through the given pipeline
-        dataset = Dataset().executePipeline(pipeline["id"], data, pipeline["pipeline_desc"], debug)
+        dataset = Dataset().createDataset(pipeline["id"], data, pipeline["pipeline_desc"], debug)
 
         if dataset.empty:
             return dataset
 
-        dataset = dataset.iloc[:, :-dataset_desc["labels"]]
+        #dataset = dataset.iloc[:, :-dataset_desc["labels"]]
         if debug:
             print("Sending feature vector : " + str(dataset))
 
-        return self.get_predictions_with_dataset(dataset, training_id, debug)
+        return self.get_predictions_with_dataset(dataset, training_id, labels=dataset_desc["labels"], debug=debug)
 
     @staticmethod
     def generateMarketId(dataset_desc, market):
@@ -164,10 +159,11 @@ class Dataset:
             fun = CloudFunctions(credentials_store)
         self.fun = fun
 
-    def executePipeline(self, pipeline, data, config, debug=False):
+    def createDataset(self, pipeline, data, config, debug=False):
 
         if debug:
-            print("Request to pipeline : " + str(data))
+            print(f"Pipeline info - ID: {pipeline}, Config: {str(config)}")
+            print(f"Sending data to pipeline : {str(data)}")
 
         data = {
             "data": json.loads(data.to_json(orient='split', date_format="iso")),
@@ -180,7 +176,7 @@ class Dataset:
             print("Pipeline response : " + str(response))
 
         if response:
-            dataset = pandas.read_json(json.dumps(response), orient='split', dtype=False)
+            dataset = pd.read_json(json.dumps(response), orient='split', dtype=False)
             if not dataset.empty:  # Check for empty dataset
                 dataset.index.names = ["Date_Time"]  # Workaround for lack of index name in marshalling
                 dataset = ppl.localize(dataset, "UTC", config["timezone"])  # Marshalling turns dates to UTC
@@ -202,4 +198,4 @@ class Dataset:
 
     @staticmethod
     def jsontocsv(jsonObj):
-        return pandas.DataFrame(jsonObj["data"], index=pandas.DatetimeIndex(jsonObj["index"], name="Date_Time", tz=pytz.timezone(jsonObj["tz"])))
+        return pd.DataFrame(jsonObj["data"], index=pd.DatetimeIndex(jsonObj["index"], name="Date_Time", tz=pytz.timezone(jsonObj["tz"])))

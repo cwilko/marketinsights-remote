@@ -90,7 +90,7 @@ class MIModelServer:
         self.remotefs.get(sourceFile=f"{modelName}/{version}", targetPath="/tmp/models/")
         model.restore(f"/tmp/models/{modelName}/{version}")
 
-    def getPredictions(self, data, modelName, version=1, debug=False):
+    def getPredictions(self, features, modelName, version=1, debug=False):
         headers = {
             #'X-IBM-Client-Id': self.credentials["clientId"],
             #'X-IBM-Client-Secret': self.credentials["clientSecret"],
@@ -98,12 +98,12 @@ class MIModelServer:
             'accept': 'application/json'
 
         }
-        payload = Predictions.data_to_json(data)
+        payload = Predictions.data_to_json(features)
         url = f'{self.credentials["modelserver-endpoint"]}/v1/models/{modelName}:predict'
         resp = http.post(url=url, headers=headers, data=payload, debug=debug)
         if debug:
             print(payload)
-        return Predictions.json_to_data(data, resp)
+        return Predictions.json_to_data(features, resp)
 
 
 class Predictions:
@@ -119,4 +119,4 @@ class Predictions:
     @staticmethod
     def json_to_data(data, json):
         predictions = np.array(json["predictions"])
-        return pd.concat([data, pd.DataFrame(predictions, index=data.index, columns=[f'y_pred{y}' for y in range(predictions.shape[1])])], axis=1)
+        return pd.DataFrame(predictions, index=data.index, columns=[f'y_pred{y}' for y in range(predictions.shape[1])])
