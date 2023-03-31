@@ -1,7 +1,7 @@
 import json
-import hashlib
 import numpy as np
 import pandas as pd
+
 from marketinsights.remote.filesystem import RemoteFS
 from marketinsights.remote.grpc import GRPCClient
 from marketinsights.utils.auth import CredentialsStore
@@ -23,7 +23,8 @@ class MIModelServer:
             secret = "marketinsights-local-cred"
         self.credentials = credentials_store.getSecrets(secret)
         self.remotefs = RemoteFS(credentials_store.getSecrets("scp_cred"))
-        self.modelSvr = GRPCClient(credentials_store.getSecrets("model-svr-grpc-secret"))
+        self.modelSvr = GRPCClient(
+            credentials_store.getSecrets("model-svr-grpc-secret"))
 
         self.serverConfigPath = serverConfigPath
         if serverConfigPath:
@@ -55,7 +56,8 @@ class MIModelServer:
             result = {}
             for c in self.serverConfig["modelConfigList"]["config"]:
                 result.setdefault(c["name"], {}).update(c)
-            self.serverConfig["modelConfigList"]["config"] = list(result.values())
+            self.serverConfig["modelConfigList"]["config"] = list(
+                result.values())
 
             self.refreshModelServerConfig()
 
@@ -69,7 +71,8 @@ class MIModelServer:
 
         # Parse json server config to proto message
         model_server_config = model_server_config_pb2.ModelServerConfig()
-        model_server_config = json_format.Parse(text=json.dumps(self.serverConfig), message=model_server_config)
+        model_server_config = json_format.Parse(text=json.dumps(
+            self.serverConfig), message=model_server_config)
 
         # Create a Reload Request
         request = model_management_pb2.ReloadConfigRequest()
@@ -80,20 +83,22 @@ class MIModelServer:
         response = stub.HandleReloadConfigRequest(request, 10)
 
         if response.status.error_code != 0:
-            raise Exception(f"Error: {response.status.error_code}, {response.status.error_message}")
+            raise Exception(
+                f"Error: {response.status.error_code}, {response.status.error_message}")
 
     def restoreModel(self, model, modelName=None, version=1):
 
         if not modelName:
             modelName = model.modelName
 
-        self.remotefs.get(sourceFile=f"{modelName}/{version}", targetPath="/tmp/models/")
+        self.remotefs.get(
+            sourceFile=f"{modelName}/{version}", targetPath="/tmp/models/")
         model.restore(f"/tmp/models/{modelName}/{version}")
 
     def getPredictions(self, features, modelName, version=1, debug=False):
         headers = {
-            #'X-IBM-Client-Id': self.credentials["clientId"],
-            #'X-IBM-Client-Secret': self.credentials["clientSecret"],
+            # 'X-IBM-Client-Id': self.credentials["clientId"],
+            # 'X-IBM-Client-Secret': self.credentials["clientSecret"],
             'content-type': 'application/json',
             'accept': 'application/json'
 
