@@ -9,10 +9,8 @@ from marketinsights.remote.ibmcloud import CloudFunctions
 from marketinsights.utils.auth import CredentialsStore
 
 
-class MIAssembly():
-
+class MIAssembly:
     def __init__(self, modelSvr=None, credentials_store=None, secret=None):
-
         if not credentials_store:
             credentials_store = CredentialsStore()
 
@@ -25,30 +23,38 @@ class MIAssembly():
     def put_dataset(self, data, dataset_desc, market, debug=False):
         dataset = Dataset.csvtojson(data, dataset_desc, market)
         headers = {
-            'X-IBM-Client-Id': self.credentials["clientId"],
-            'X-IBM-Client-Secret': self.credentials["clientSecret"],
-            'content-type': 'application/json'
+            "X-IBM-Client-Id": self.credentials["clientId"],
+            "X-IBM-Client-Secret": self.credentials["clientSecret"],
+            "content-type": "application/json",
         }
         url = "".join([self.credentials["mi-api-endpoint"], "/v1/datasets"])
         return http.put(url=url, headers=headers, data=dataset, debug=debug)
 
     def get_dataset(self, dataset_desc, market, debug=False):
-        return self.get_dataset_by_id(Dataset.generateMarketId(dataset_desc, market), debug)
+        return self.get_dataset_by_id(
+            Dataset.generateMarketId(dataset_desc, market), debug
+        )
 
     def get_dataset_by_id(self, dataset_id, debug=False):
         headers = {
-            'X-IBM-Client-Id': self.credentials["clientId"],
-            'X-IBM-Client-Secret': self.credentials["clientSecret"],
-            'accept': 'application/json'
+            "X-IBM-Client-Id": self.credentials["clientId"],
+            "X-IBM-Client-Secret": self.credentials["clientSecret"],
+            "accept": "application/json",
         }
 
         # TODO eliminate id, no need.
         query = {
-            'where': {
-                'id': dataset_id,
+            "where": {
+                "id": dataset_id,
             }
         }
-        url = "".join([self.credentials["mi-api-endpoint"], "/v1/datasets?filter=", json.dumps(query)])
+        url = "".join(
+            [
+                self.credentials["mi-api-endpoint"],
+                "/v1/datasets?filter=",
+                json.dumps(query),
+            ]
+        )
         resp = http.get(url=url, headers=headers, debug=debug)
         dataset = resp[0]
         return [Dataset.jsontocsv(dataset), dataset["dataset_desc"]]
@@ -59,51 +65,61 @@ class MIAssembly():
 
     def put_model(self, data, debug=False):
         headers = {
-            'X-IBM-Client-Id': self.credentials["clientId"],
-            'X-IBM-Client-Secret': self.credentials["clientSecret"],
-            'content-type': 'application/json'
+            "X-IBM-Client-Id": self.credentials["clientId"],
+            "X-IBM-Client-Secret": self.credentials["clientSecret"],
+            "content-type": "application/json",
         }
         url = "".join([self.credentials["mi-api-endpoint"], "/v1/models"])
         return http.put(url=url, headers=headers, data=json.dumps(data), debug=debug)
 
     def get_model(self, modelId, debug=False):
         headers = {
-            'X-IBM-Client-Id': self.credentials["clientId"],
-            'X-IBM-Client-Secret': self.credentials["clientSecret"],
-            'accept': 'application/json'
+            "X-IBM-Client-Id": self.credentials["clientId"],
+            "X-IBM-Client-Secret": self.credentials["clientSecret"],
+            "accept": "application/json",
         }
         url = "".join([self.credentials["mi-api-endpoint"], "/v1/models/", modelId])
         return http.get(url=url, headers=headers, debug=debug)
 
     def put_training_run(self, data, debug=False):
         headers = {
-            'X-IBM-Client-Id': self.credentials["clientId"],
-            'X-IBM-Client-Secret': self.credentials["clientSecret"],
-            'content-type': 'application/json'
+            "X-IBM-Client-Id": self.credentials["clientId"],
+            "X-IBM-Client-Secret": self.credentials["clientSecret"],
+            "content-type": "application/json",
         }
         url = "".join([self.credentials["mi-api-endpoint"], "/v1/training_runs"])
         return http.put(url=url, headers=headers, data=json.dumps(data), debug=debug)
 
     def get_training_run(self, training_run_id, debug=False):
         headers = {
-            'X-IBM-Client-Id': self.credentials["clientId"],
-            'X-IBM-Client-Secret': self.credentials["clientSecret"],
-            'accept': 'application/json'
+            "X-IBM-Client-Id": self.credentials["clientId"],
+            "X-IBM-Client-Secret": self.credentials["clientSecret"],
+            "accept": "application/json",
         }
-        url = "".join([self.credentials["mi-api-endpoint"], "/v1/training_runs/", training_run_id])
+        url = "".join(
+            [self.credentials["mi-api-endpoint"], "/v1/training_runs/", training_run_id]
+        )
         return http.get(url=url, headers=headers, debug=debug)
 
-    def get_predictions_with_dataset(self, dataset, training_run_id, labels=1, debug=False):
-
+    def get_predictions_with_dataset(
+        self, dataset, training_run_id, labels=1, debug=False
+    ):
         if not self.modelSvr:
             raise Exception("No Model Server configured")
 
         features = dataset.iloc[:, :-labels]
         # Send the dataset features to the model and retrieve the scores (predictions)
-        return pd.concat([dataset, self.modelSvr.getPredictions(features, training_run_id, debug=debug)], axis=1)
+        return pd.concat(
+            [
+                dataset,
+                self.modelSvr.getPredictions(features, training_run_id, debug=debug),
+            ],
+            axis=1,
+        )
 
-    def get_predictions_with_dataset_id(self, dataset_id, training_run_id, start=None, end=None, debug=False):
-
+    def get_predictions_with_dataset_id(
+        self, dataset_id, training_run_id, start=None, end=None, debug=False
+    ):
         # Get the dataset from storage, crop and strip out labels
         dataset, dataset_desc = self.get_dataset_by_id(dataset_id, debug)
 
@@ -113,10 +129,11 @@ class MIAssembly():
         if dataset.empty:  # No predictions in this time range
             return None
 
-        return self.get_predictions_with_dataset(dataset, training_run_id, labels=dataset_desc["labels"], debug=debug)
+        return self.get_predictions_with_dataset(
+            dataset, training_run_id, labels=dataset_desc["labels"], debug=debug
+        )
 
     def get_predictions_with_raw_data(self, data, training_id, debug=False):
-
         training_run = self.get_training_run(training_id)
         if debug:
             print("Training run : " + str(training_run))
@@ -126,33 +143,49 @@ class MIAssembly():
         pipeline = dataset_desc["pipeline"]
 
         # Generate a dataset from the raw data through the given pipeline
-        dataset = Dataset().createDataset(pipeline["id"], data, pipeline["pipeline_desc"], debug)
+        dataset = Dataset().createDataset(
+            pipeline["id"], data, pipeline["pipeline_desc"], debug
+        )
 
         if dataset.empty:
             return dataset
 
-        #dataset = dataset.iloc[:, :-dataset_desc["labels"]]
+        # dataset = dataset.iloc[:, :-dataset_desc["labels"]]
         if debug:
             print("Sending feature vector : " + str(dataset))
 
-        return self.get_predictions_with_dataset(dataset, training_id, labels=dataset_desc["labels"], debug=debug)
+        return self.get_predictions_with_dataset(
+            dataset, training_id, labels=dataset_desc["labels"], debug=debug
+        )
 
     @staticmethod
     def generateMarketId(dataset_desc, market):
-        return hashlib.md5("".join([market, json.dumps(dataset_desc["pipeline"], sort_keys=True), str(dataset_desc["features"]), str(dataset_desc["labels"])]).encode('utf-8')).hexdigest()
+        return hashlib.md5(
+            "".join(
+                [
+                    market,
+                    str(dataset_desc["name"]),
+                    json.dumps(dataset_desc["pipeline"], sort_keys=True),
+                    str(dataset_desc["features"]),
+                    str(dataset_desc["labels"]),
+                ]
+            ).encode("utf-8")
+        ).hexdigest()
 
     @staticmethod
     def generateTrainingId(dataset_desc, model_id, name=None):
-        training_id = str(hashlib.md5(f'{str(dataset_desc)}{str(model_id)}'.encode('utf-8')).hexdigest())
+        training_id = str(
+            hashlib.md5(
+                f"{str(dataset_desc)}{str(model_id)}".encode("utf-8")
+            ).hexdigest()
+        )
         if name:
             training_id = f"{name}-{training_id}"
         return training_id
 
 
 class Dataset:
-
     def __init__(self, fun=None, credentials_store=None):
-
         if not credentials_store:
             credentials_store = CredentialsStore()
         if not fun:
@@ -160,14 +193,13 @@ class Dataset:
         self.fun = fun
 
     def createDataset(self, pipeline, data, config, debug=False):
-
         if debug:
             print(f"Pipeline info - ID: {pipeline}, Config: {str(config)}")
             print(f"Sending data to pipeline : {str(data)}")
 
         data = {
-            "data": json.loads(data.to_json(orient='split', date_format="iso")),
-            "dataset": config
+            "data": json.loads(data.to_json(orient="split", date_format="iso")),
+            "dataset": config,
         }
 
         response = self.fun.call_function(pipeline, data, debug)
@@ -176,10 +208,14 @@ class Dataset:
             print("Pipeline response : " + str(response))
 
         if response:
-            dataset = pd.read_json(json.dumps(response), orient='split', dtype=False)
+            dataset = pd.read_json(json.dumps(response), orient="split", dtype=False)
             if not dataset.empty:  # Check for empty dataset
-                dataset.index.names = ["Date_Time"]  # Workaround for lack of index name in marshalling
-                dataset = ppl.localize(dataset, "UTC", config["timezone"])  # Marshalling turns dates to UTC
+                dataset.index.names = [
+                    "Date_Time"
+                ]  # Workaround for lack of index name in marshalling
+                dataset = ppl.localize(
+                    dataset, "UTC", config["timezone"]
+                )  # Marshalling turns dates to UTC
             return dataset
         else:
             raise Exception("No response received from pipeline execution")
@@ -187,15 +223,22 @@ class Dataset:
     @staticmethod
     def csvtojson(csv, dataset_desc, market, createId=True):
         obj = {}
-        if (createId):
-            obj["id"] = Dataset.generateId(dataset_desc, market)
+        if createId:
+            obj["id"] = MIAssembly.generateMarketId(dataset_desc, market)
         obj["dataset_desc"] = dataset_desc
         obj["market"] = market
         obj["data"] = csv.values.tolist()
         obj["tz"] = csv.index.tz.zone
-        obj["index"] = [date.isoformat() for date in csv.index.tz_localize(None)]  # Remove locale
+        obj["index"] = [
+            date.isoformat() for date in csv.index.tz_localize(None)
+        ]  # Remove locale
         return json.dumps(obj)
 
     @staticmethod
     def jsontocsv(jsonObj):
-        return pd.DataFrame(jsonObj["data"], index=pd.DatetimeIndex(jsonObj["index"], name="Date_Time", tz=pytz.timezone(jsonObj["tz"])))
+        return pd.DataFrame(
+            jsonObj["data"],
+            index=pd.DatetimeIndex(
+                jsonObj["index"], name="Date_Time", tz=pytz.timezone(jsonObj["tz"])
+            ),
+        )
